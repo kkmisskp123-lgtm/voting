@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CR Election</title>
+
+<!-- Firebase (compat SDK — simplest for a static, no-build site) -->
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+
+<style>
+  :root{
+    --paper:#f2ede2;
+    --paper-dark:#e7dfcd;
+    --ink:#1f1c16;
+    --ink-soft:#5a5344;
+    --line:#c9bfa8;
+    --seal:#8a1f1f;
+    --seal-dark:#6b1717;
+    --gold:#a9862f;
+  }
+
+  *{box-sizing:border-box;}
+
+  body{
+    margin:0;
+    background:
+      radial-gradient(1200px 700px at 10% -10%, #fffaf0 0%, transparent 60%),
+      var(--paper);
+    color:var(--ink);
+    font-family: 'Georgia', 'Iowan Old Style', 'Palatino Linotype', serif;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding: 32px 16px 12px;
+  }
+
+  .wrap{
+    width:100%;
+    max-width:640px;
+  }
+
+  header.masthead{
+    text-align:center;
+    border-bottom: 3px double var(--ink);
+    padding-bottom: 14px;
+    margin-bottom: 22px;
+  }
+  header.masthead .eyebrow{
+    letter-spacing:.28em;
+    font-size:11px;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    font-family: 'Courier New', monospace;
+  }
+  header.masthead h1{
+    margin:6px 0 4px;
+    font-size:clamp(28px,6vw,40px);
+    letter-spacing:.02em;
+    font-weight:400;
+  }
+  header.masthead .sub{
+    font-style:italic;
+    color:var(--ink-soft);
+    font-size:14px;
+  }
+
+  .card{
+    background: var(--paper-dark);
+    border:1px solid var(--line);
+    border-radius:2px;
+    padding: 22px;
+    margin-bottom:18px;
+    box-shadow: 0 1px 0 rgba(0,0,0,.03), 0 8px 20px -14px rgba(0,0,0,.4);
+  }
+
+  label{
+    display:block;
+    font-family:'Courier New', monospace;
+    font-size:12px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin-bottom:8px;
+  }
+
+  input[type="text"]{
+    width:100%;
+    font-family:'Georgia',serif;
+    font-size:18px;
+    padding:12px 14px;
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:2px;
+    color:var(--ink);
+  }
+  input[type="text"]:focus{
+    outline:2px solid var(--gold);
+    outline-offset:1px;
+  }
+
+  button{
+    font-family:'Courier New', monospace;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    font-size:13px;
+    padding:12px 18px;
+    background:var(--ink);
+    color:var(--paper);
+    border:none;
+    border-radius:2px;
+    cursor:pointer;
+    transition:opacity .15s ease, transform .05s ease;
+  }
+  button:hover{opacity:.85;}
+  button:active{transform:translateY(1px);}
+  button:disabled{opacity:.4;cursor:not-allowed;}
+
+  button.ghost{
+    background:transparent;
+    color:var(--seal);
+    border:1px solid var(--seal);
+  }
+
+  .stack{display:flex;flex-direction:column;gap:12px;}
+  .row{display:flex;gap:10px;flex-wrap:wrap;}
+
+  nav.tabs{
+    display:flex;
+    gap:8px;
+    margin-bottom:18px;
+    flex-wrap:wrap;
+    justify-content:center;
+  }
+  nav.tabs button{
+    background:transparent;
+    color:var(--ink-soft);
+    border:1px solid var(--line);
+  }
+  nav.tabs button.active{
+    background:var(--ink);
+    color:var(--paper);
+    border-color:var(--ink);
+  }
+
+  .notice{
+    font-family:'Courier New', monospace;
+    font-size:15px;
+    letter-spacing:.03em;
+    color:var(--ink-soft);
+    text-align:center;
+    margin: 2px 0 18px;
+    line-height:1.7;
+  }
+  .notice strong{color:var(--seal);}
+
+  .candidate{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:14px 16px;
+    border:1px solid var(--line);
+    border-radius:2px;
+    background:var(--paper);
+    margin-bottom:10px;
+  }
+  .candidate .name{font-size:17px;}
+  .candidate button{padding:9px 14px;font-size:12px;}
+
+  .ballot-btn{
+    width:100%;
+    text-align:left;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    background:var(--paper);
+    color:var(--ink);
+    border:1px solid var(--line);
+    padding:16px 18px;
+    font-size:17px;
+    margin-bottom:10px;
+    font-family:'Georgia',serif;
+    text-transform:none;
+    letter-spacing:0;
+  }
+  .ballot-btn:hover{border-color:var(--gold);background:#fbf6e8;}
+  .ballot-btn .mark{
+    font-family:'Courier New',monospace;
+    font-size:12px;
+    color:var(--ink-soft);
+  }
+
+  .seal-box{
+    text-align:center;
+    padding: 30px 16px;
+  }
+  .seal-img{
+    width:300px;height:300px;
+    margin:0 auto 16px;
+    object-fit:contain;
+    display:block;
+  }
+  .seal-box .verdict-name{
+    font-size:22px;
+    margin:6px 0 2px;
+  }
+
+  .tally-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:12px 4px;
+    border-bottom:1px dashed var(--line);
+    font-size:16px;
+  }
+  .tally-row:last-child{border-bottom:none;}
+  .tally-row .bar-wrap{
+    flex:1;
+    height:8px;
+    background:var(--paper);
+    border:1px solid var(--line);
+    margin:0 14px;
+    position:relative;
+  }
+  .tally-row .bar{
+    position:absolute;left:0;top:0;bottom:0;
+    background:var(--gold);
+  }
+  .tally-count{font-family:'Courier New',monospace;min-width:26px;text-align:right;}
+
+  table.voters{width:100%;border-collapse:collapse;font-size:14px;}
+  table.voters th, table.voters td{
+    text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);
+  }
+  table.voters th{
+    font-family:'Courier New',monospace;
+    font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--ink-soft);
+  }
+
+  .empty{
+    text-align:center;
+    color:var(--ink-soft);
+    font-style:italic;
+    padding: 20px 0;
+  }
+
+  .error-text{
+    color:var(--seal);
+    font-family:'Courier New',monospace;
+    font-size:12.5px;
+    margin-top:6px;
+  }
+
+  footer.credit{
+    margin-top:auto;
+    padding: 22px 0 8px;
+    text-align:center;
+    color:#5f5a51;
+    font-size:13px;
+    letter-spacing:.05em;
+  }
+
+  @media (max-width:480px){
+    .card{padding:16px;}
+    header.masthead h1{font-size:26px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="masthead">
+    <div class="eyebrow">Official Ballot</div>
+    <h1>Election of the Class Representative</h1>
+    <div class="sub">One name. One vote. Choose wisely.</div>
+  </header>
+
+  <div id="app"></div>
+</div>
+
+<footer class="credit">made by KRISHNA</footer>
+
+<script>
+/* ============================================================
+   FIREBASE CONFIG — replace with your own project's config.
+   (Firebase console → Project settings → General → Your apps → SDK config)
+   ============================================================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyCkyR_3-PZhyNplPYndNWK_2dDcJ9_DYdE",
+  authDomain: "class-election-af133.firebaseapp.com",
+  databaseURL: "https://class-election-af133-default-rtdb.firebaseio.com",
+  projectId: "class-election-af133",
+  storageBucket: "class-election-af133.firebasestorage.app",
+  messagingSenderId: "77300901890",
+  appId: "1:77300901890:web:20d8719585e2c24ac2df1b",
+  measurementId: "G-SRZRJTW0K6"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+const CONTROLLER_KEY = "kashyap7704";
+const ELECTION_DOC = db.collection("cr_election").doc("state");
+// state shape: { candidates: [ "Name1", "Name2", ... ], votes: { "voterName": "candidateName", ... } }
+
+const root = document.getElementById("app");
+
+let currentUser = null;   // the access-key name typed in
+let currentTab = "vote";
+let state = { candidates: [], votes: {} };
+let unsub = null;
+
+function esc(str){
+  const d = document.createElement("div");
+  d.innerText = str;
+  return d.innerHTML;
+}
+
+function startListening(){
+  if (unsub) return;
+  unsub = ELECTION_DOC.onSnapshot((doc) => {
+    state = doc.exists ? doc.data() : { candidates: [], votes: {} };
+    if (!state.candidates) state.candidates = [];
+    if (!state.votes) state.votes = {};
+    render();
+  }, (err) => {
+    console.error(err);
+    root.innerHTML = `<div class="card"><p class="error-text">Could not connect to the election database. Check the Firebase config in this page's source, and your internet connection.</p></div>`;
+  });
+}
+
+async function addCandidate(name){
+  name = name.trim();
+  if (!name) return;
+  if (state.candidates.includes(name)) return;
+  await ELECTION_DOC.set({
+    candidates: [...state.candidates, name],
+    votes: state.votes
+  }, { merge: true });
+}
+
+async function removeCandidate(name){
+  await ELECTION_DOC.set({
+    candidates: state.candidates.filter(c => c !== name),
+    votes: state.votes
+  }, { merge: true });
+}
+
+async function castVote(candidate){
+  if (state.votes[currentUser]) return; // already voted, no double voting
+  const newVotes = { ...state.votes, [currentUser]: candidate };
+  await ELECTION_DOC.set({
+    candidates: state.candidates,
+    votes: newVotes
+  }, { merge: true });
+}
+
+async function resetElection(){
+  if (!confirm("This clears every candidate and every vote. Continue?")) return;
+  await ELECTION_DOC.set({ candidates: [], votes: {} });
+}
+
+function render(){
+  if (!currentUser){
+    renderLogin();
+    return;
+  }
+
+  const isController = currentUser === CONTROLLER_KEY;
+  const tabs = isController
+    ? [["vote","Voting Page"], ["add","Add Candidates"], ["who","Who Voted Whom"]]
+    : [["vote","Voting Page"], ["verdict","Final Verdict"]];
+
+  let html = `<nav class="tabs">`;
+  tabs.forEach(([key,label]) => {
+    html += `<button data-tab="${key}" class="${currentTab===key?'active':''}">${label}</button>`;
+  });
+  html += `</nav>`;
+
+  if (currentTab === "vote") html += renderVotePage(isController);
+  else if (currentTab === "add" && isController) html += renderAddPage();
+  else if (currentTab === "who" && isController) html += renderWhoPage();
+  else if (currentTab === "verdict" && !isController) html += renderVerdictPage();
+  else { currentTab = "vote"; html = renderVotePage(isController); }
+
+  root.innerHTML = html;
+  wireEvents(isController);
+}
+
+function renderLogin(){
+  root.innerHTML = `
+    <div class="card">
+      <label for="nameInput">Enter your name</label>
+      <div class="stack">
+        <input type="text" id="nameInput" placeholder="e.g. DAKU GABBAR" autocomplete="off" />
+        <button id="enterBtn">Enter</button>
+      </div>
+      <p class="notice" style="margin-top:14px;">YOUR VOTE IS ANONYMOUS. YOU CAN CAST VOTE ONLY ONCE</p>
+    </div>
+  `;
+  const input = document.getElementById("nameInput");
+  const go = () => {
+    const v = input.value.trim();
+    if (!v) return;
+    currentUser = v;
+    currentTab = "vote";
+    startListening();
+    render();
+  };
+  document.getElementById("enterBtn").onclick = go;
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
+  input.focus();
+}
+
+function renderVotePage(isController){
+  const already = state.votes[currentUser];
+  let body = "";
+
+  if (already){
+    body = `
+      <div class="card seal-box">
+        <img class="seal-img" src="https://tse1.mm.bing.net/th/id/OIP.JEawMOBRfPdG2UvR7wKbdAHaEK?r=0&rs=1&pid=ImgDetMain&o=7&rm=3" alt="Vote cast" />
+        <div class="verdict-name">${esc(already)}</div>
+        <p style="color:var(--ink-soft);font-size:14px;">Your ballot has been sealed. Thank you, ${esc(currentUser)}.</p>
+      </div>`;
+  } else if (state.candidates.length === 0){
+    body = `<div class="card"><p class="empty">No candidates have been added yet. Check back once the controller opens nominations.</p></div>`;
+  } else {
+    body = `<div class="card">` +
+      state.candidates.map(c => `<button class="ballot-btn" data-vote="${esc(c)}"><span>${esc(c)}</span><span class="mark">cast vote →</span></button>`).join("") +
+      `</div>`;
+  }
+
+  return `
+    <p class="notice"><strong>You can vote only once.</strong><br/>Don't be imprudent — choose your CR wisely.</p>
+    ${body}
+  `;
+}
+
+function renderAddPage(){
+  return `
+    <div class="card">
+      <label for="candInput">Candidate name</label>
+      <div class="row">
+        <input type="text" id="candInput" placeholder="Full name" autocomplete="off" style="flex:1;" />
+        <button id="addCandBtn">Add</button>
+      </div>
+    </div>
+    <div class="card">
+      <label>Contesting (${state.candidates.length})</label>
+      ${
+        state.candidates.length === 0
+          ? `<p class="empty">No candidates yet.</p>`
+          : state.candidates.map(c => `
+              <div class="candidate">
+                <span class="name">${esc(c)}</span>
+                <button class="ghost" data-remove="${esc(c)}">Remove</button>
+              </div>`).join("")
+      }
+    </div>
+    <div class="card">
+      <button class="ghost" id="resetBtn">Reset entire election</button>
+    </div>
+  `;
+}
+
+function renderWhoPage(){
+  const entries = Object.entries(state.votes);
+  return `
+    <div class="card">
+      <label>Ballots cast (${entries.length})</label>
+      ${
+        entries.length === 0
+          ? `<p class="empty">No one has voted yet.</p>`
+          : `<table class="voters">
+              <thead><tr><th>Voter</th><th>Voted for</th></tr></thead>
+              <tbody>
+                ${entries.map(([voter,cand]) => `<tr><td>${esc(voter)}</td><td>${esc(cand)}</td></tr>`).join("")}
+              </tbody>
+            </table>`
+      }
+    </div>
+  `;
+}
+
+function renderVerdictPage(){
+  const counts = {};
+  state.candidates.forEach(c => counts[c] = 0);
+  Object.values(state.votes).forEach(c => { counts[c] = (counts[c] || 0) + 1; });
+  const total = Object.values(state.votes).length;
+  const max = Math.max(1, ...Object.values(counts));
+
+  const rows = state.candidates.length === 0
+    ? `<p class="empty">No candidates yet.</p>`
+    : state.candidates
+        .sort((a,b) => counts[b]-counts[a])
+        .map(c => `
+          <div class="tally-row">
+            <span>${esc(c)}</span>
+            <span class="bar-wrap"><span class="bar" style="width:${(counts[c]/max*100)}%"></span></span>
+            <span class="tally-count">${counts[c]}</span>
+          </div>`).join("");
+
+  return `
+    <div class="card">
+      <label>Total votes cast: ${total}</label>
+      ${rows}
+    </div>
+  `;
+}
+
+function wireEvents(isController){
+  document.querySelectorAll("[data-tab]").forEach(btn => {
+    btn.onclick = () => { currentTab = btn.dataset.tab; render(); };
+  });
+
+  document.querySelectorAll("[data-vote]").forEach(btn => {
+    btn.onclick = () => castVote(btn.dataset.vote);
+  });
+
+  const addBtn = document.getElementById("addCandBtn");
+  if (addBtn){
+    const input = document.getElementById("candInput");
+    const go = () => { addCandidate(input.value); input.value = ""; input.focus(); };
+    addBtn.onclick = go;
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
+  }
+
+  document.querySelectorAll("[data-remove]").forEach(btn => {
+    btn.onclick = () => removeCandidate(btn.dataset.remove);
+  });
+
+  const resetBtn = document.getElementById("resetBtn");
+  if (resetBtn) resetBtn.onclick = resetElection;
+}
+
+render();
+</script>
+
+</body>
+</html>
