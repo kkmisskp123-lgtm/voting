@@ -301,6 +301,7 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+const FieldValue = firebase.firestore.FieldValue;
 
 const CONTROLLER_KEY = "kashyap7704";
 const ELECTION_DOC = db.collection("cr_election").doc("state");
@@ -359,12 +360,8 @@ async function castVote(candidate){
 }
 
 async function deleteVote(voterName){
-  const newVotes = { ...state.votes };
-  delete newVotes[voterName];
-  await ELECTION_DOC.set({
-    candidates: state.candidates,
-    votes: newVotes
-  }, { merge: true });
+  const path = new firebase.firestore.FieldPath("votes", voterName);
+  await ELECTION_DOC.update(path, FieldValue.delete());
 }
 
 async function resetElection(){
@@ -408,7 +405,7 @@ function renderLogin(){
         <input type="text" id="nameInput" placeholder="e.g. Kashyap" autocomplete="off" />
         <button id="enterBtn">Enter</button>
       </div>
-      <p class="notice" style="margin-top:14px;">ENTER WITH YOUR NAME TO CAST VOTE. YOU CAN CAST VOTE ONLY ONCE.</p>
+      <p class="notice" style="margin-top:14px;">ENTER WITH YOUR NAME TO CAST VOTE. YOU CAN CAST VOTE ONLY ONCE</p>
     </div>
   `;
   const input = document.getElementById("nameInput");
@@ -554,10 +551,17 @@ function wireEvents(isController){
   });
 
   document.querySelectorAll("[data-delvote]").forEach(btn => {
-    btn.onclick = () => {
-      if (currentUser !== CONTROLLER_KEY) return; // controller-only, enforced here too
-      if (confirm(`Delete ${btn.dataset.delvote}'s vote? They will be able to vote again.`)) {
-        deleteVote(btn.dataset.delvote);
+    btn.onclick = async () => {
+      if (currentUser.trim() !== CONTROLLER_KEY) {
+        alert("Only the controller can delete votes.");
+        return;
+      }
+      if (!confirm(`Delete ${btn.dataset.delvote}'s vote? They will be able to vote again.`)) return;
+      try {
+        await deleteVote(btn.dataset.delvote);
+      } catch (err) {
+        console.error(err);
+        alert("Could not delete the vote: " + err.message);
       }
     };
   });
