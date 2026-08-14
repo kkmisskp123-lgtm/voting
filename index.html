@@ -147,7 +147,7 @@
 
   .notice{
     font-family:'Courier New', monospace;
-    font-size:15px;
+    font-size:12.5px;
     letter-spacing:.03em;
     color:var(--ink-soft);
     text-align:center;
@@ -197,7 +197,7 @@
     padding: 30px 16px;
   }
   .seal-img{
-    width:300px;height:300px;
+    width:110px;height:110px;
     margin:0 auto 16px;
     object-fit:contain;
     display:block;
@@ -258,8 +258,8 @@
     margin-top:auto;
     padding: 22px 0 8px;
     text-align:center;
-    color:#5f5a51;
-    font-size:13px;
+    color:#b7ae9a;
+    font-size:11px;
     letter-spacing:.05em;
   }
 
@@ -281,7 +281,7 @@
   <div id="app"></div>
 </div>
 
-<footer class="credit">made by KRISHNA</footer>
+<footer class="credit">made by krishna</footer>
 
 <script>
 /* ============================================================
@@ -289,7 +289,7 @@
    (Firebase console → Project settings → General → Your apps → SDK config)
    ============================================================ */
 const firebaseConfig = {
-  apiKey: "AIzaSyCkyR_3-PZhyNplPYndNWK_2dDcJ9_DYdE",
+ apiKey: "AIzaSyCkyR_3-PZhyNplPYndNWK_2dDcJ9_DYdE",
   authDomain: "class-election-af133.firebaseapp.com",
   databaseURL: "https://class-election-af133-default-rtdb.firebaseio.com",
   projectId: "class-election-af133",
@@ -308,7 +308,7 @@ const ELECTION_DOC = db.collection("cr_election").doc("state");
 
 const root = document.getElementById("app");
 
-let currentUser = null;   // the access-key name typed in
+let currentUser = localStorage.getItem("crElectionUser") || null;   // the access-key name typed in
 let currentTab = "vote";
 let state = { candidates: [], votes: {} };
 let unsub = null;
@@ -358,6 +358,15 @@ async function castVote(candidate){
   }, { merge: true });
 }
 
+async function deleteVote(voterName){
+  const newVotes = { ...state.votes };
+  delete newVotes[voterName];
+  await ELECTION_DOC.set({
+    candidates: state.candidates,
+    votes: newVotes
+  }, { merge: true });
+}
+
 async function resetElection(){
   if (!confirm("This clears every candidate and every vote. Continue?")) return;
   await ELECTION_DOC.set({ candidates: [], votes: {} });
@@ -379,6 +388,7 @@ function render(){
     html += `<button data-tab="${key}" class="${currentTab===key?'active':''}">${label}</button>`;
   });
   html += `</nav>`;
+  html += `<p style="text-align:center;margin:-10px 0 18px;"><button id="switchNameBtn" class="ghost" style="padding:6px 12px;font-size:11px;">Not ${esc(currentUser)}? Switch name</button></p>`;
 
   if (currentTab === "vote") html += renderVotePage(isController);
   else if (currentTab === "add" && isController) html += renderAddPage();
@@ -395,10 +405,10 @@ function renderLogin(){
     <div class="card">
       <label for="nameInput">Enter your name</label>
       <div class="stack">
-        <input type="text" id="nameInput" placeholder="e.g. DAKU GABBAR" autocomplete="off" />
+        <input type="text" id="nameInput" placeholder="e.g. Kashyap" autocomplete="off" />
         <button id="enterBtn">Enter</button>
       </div>
-      <p class="notice" style="margin-top:14px;">ENTER WITH YOUR NAME TO CAST VOTE(only vote with your name would count) YOU CAN CAST VOTE ONLY ONCE</p>
+      <p class="notice" style="margin-top:14px;">Your name becomes your access key for this session — use it again next time to return to the same account.</p>
     </div>
   `;
   const input = document.getElementById("nameInput");
@@ -406,6 +416,7 @@ function renderLogin(){
     const v = input.value.trim();
     if (!v) return;
     currentUser = v;
+    localStorage.setItem("crElectionUser", v);
     currentTab = "vote";
     startListening();
     render();
@@ -476,9 +487,9 @@ function renderWhoPage(){
         entries.length === 0
           ? `<p class="empty">No one has voted yet.</p>`
           : `<table class="voters">
-              <thead><tr><th>Voter</th><th>Voted for</th></tr></thead>
+              <thead><tr><th>Voter</th><th>Voted for</th><th></th></tr></thead>
               <tbody>
-                ${entries.map(([voter,cand]) => `<tr><td>${esc(voter)}</td><td>${esc(cand)}</td></tr>`).join("")}
+                ${entries.map(([voter,cand]) => `<tr><td>${esc(voter)}</td><td>${esc(cand)}</td><td><button class="ghost" data-delvote="${esc(voter)}" style="padding:6px 10px;font-size:11px;">Delete</button></td></tr>`).join("")}
               </tbody>
             </table>`
       }
@@ -517,6 +528,15 @@ function wireEvents(isController){
     btn.onclick = () => { currentTab = btn.dataset.tab; render(); };
   });
 
+  const switchBtn = document.getElementById("switchNameBtn");
+  if (switchBtn){
+    switchBtn.onclick = () => {
+      localStorage.removeItem("crElectionUser");
+      currentUser = null;
+      render();
+    };
+  }
+
   document.querySelectorAll("[data-vote]").forEach(btn => {
     btn.onclick = () => castVote(btn.dataset.vote);
   });
@@ -533,10 +553,20 @@ function wireEvents(isController){
     btn.onclick = () => removeCandidate(btn.dataset.remove);
   });
 
+  document.querySelectorAll("[data-delvote]").forEach(btn => {
+    btn.onclick = () => {
+      if (currentUser !== CONTROLLER_KEY) return; // controller-only, enforced here too
+      if (confirm(`Delete ${btn.dataset.delvote}'s vote? They will be able to vote again.`)) {
+        deleteVote(btn.dataset.delvote);
+      }
+    };
+  });
+
   const resetBtn = document.getElementById("resetBtn");
   if (resetBtn) resetBtn.onclick = resetElection;
 }
 
+if (currentUser) startListening();
 render();
 </script>
 
