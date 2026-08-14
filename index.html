@@ -256,10 +256,10 @@
 
   footer.credit{
     margin-top:auto;
-    padding: 50px 0 8px;
+    padding: 22px 0 8px;
     text-align:center;
     color:#b7ae9a;
-    font-size: 15px;
+    font-size:11px;
     letter-spacing:.05em;
   }
 
@@ -378,7 +378,7 @@ function render(){
   const isController = currentUser === CONTROLLER_KEY;
   const tabs = isController
     ? [["vote","Voting Page"], ["add","Add Candidates"], ["who","Who Voted Whom"]]
-    : [["vote","Voting Page"], ["verdict","Final Verdict"]];
+    : [["vote","Voting Page"]];
 
   let html = `<nav class="tabs">`;
   tabs.forEach(([key,label]) => {
@@ -390,7 +390,6 @@ function render(){
   if (currentTab === "vote") html += renderVotePage(isController);
   else if (currentTab === "add" && isController) html += renderAddPage();
   else if (currentTab === "who" && isController) html += renderWhoPage();
-  else if (currentTab === "verdict" && !isController) html += renderVerdictPage();
   else { currentTab = "vote"; html = renderVotePage(isController); }
 
   root.innerHTML = html;
@@ -490,32 +489,6 @@ function renderWhoPage(){
               </tbody>
             </table>`
       }
-    </div>
-  `;
-}
-
-function renderVerdictPage(){
-  const counts = {};
-  state.candidates.forEach(c => counts[c] = 0);
-  Object.values(state.votes).forEach(c => { counts[c] = (counts[c] || 0) + 1; });
-  const total = Object.values(state.votes).length;
-  const max = Math.max(1, ...Object.values(counts));
-
-  const rows = state.candidates.length === 0
-    ? `<p class="empty">No candidates yet.</p>`
-    : state.candidates
-        .sort((a,b) => counts[b]-counts[a])
-        .map(c => `
-          <div class="tally-row">
-            <span>${esc(c)}</span>
-            <span class="bar-wrap"><span class="bar" style="width:${(counts[c]/max*100)}%"></span></span>
-            <span class="tally-count">${counts[c]}</span>
-          </div>`).join("");
-
-  return `
-    <div class="card">
-      <label>Total votes cast: ${total}</label>
-      ${rows}
     </div>
   `;
 }
