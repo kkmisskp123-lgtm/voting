@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CR Election — Results</title>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+
+<style>
+  :root{
+    --paper:#f2ede2;
+    --paper-dark:#e7dfcd;
+    --ink:#1f1c16;
+    --ink-soft:#5a5344;
+    --line:#c9bfa8;
+    --gold:#a9862f;
+    --gold-light:#f6e9c9;
+  }
+
+  *{box-sizing:border-box;}
+
+  body{
+    margin:0;
+    background:
+      radial-gradient(1200px 700px at 10% -10%, #fffaf0 0%, transparent 60%),
+      var(--paper);
+    color:var(--ink);
+    font-family:'Georgia','Iowan Old Style','Palatino Linotype',serif;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding: 40px 16px 12px;
+  }
+
+  .wrap{ width:100%; max-width:640px; }
+
+  header.masthead{
+    text-align:center;
+    border-bottom: 3px double var(--ink);
+    padding-bottom: 14px;
+    margin-bottom: 34px;
+  }
+  header.masthead .eyebrow{
+    letter-spacing:.28em;
+    font-size:11px;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    font-family:'Courier New',monospace;
+  }
+  header.masthead h1{
+    margin:6px 0 4px;
+    font-size:clamp(26px,6vw,36px);
+    font-weight:400;
+  }
+  header.masthead .sub{
+    font-style:italic;
+    color:var(--ink-soft);
+    font-size:14px;
+  }
+
+  .loading, .empty{
+    text-align:center;
+    color:var(--ink-soft);
+    font-style:italic;
+    padding: 40px 0;
+  }
+
+  .podium{
+    display:flex;
+    flex-direction:column;
+    gap:22px;
+    margin-bottom:36px;
+  }
+
+  .rank-card{
+    position:relative;
+    border-radius:2px;
+    padding: 28px 24px;
+    text-align:center;
+    opacity:0;
+    transform: translateY(18px);
+    animation: rise .7s ease forwards;
+  }
+  .rank-card.first{
+    background: linear-gradient(180deg, var(--gold-light), var(--paper-dark));
+    border: 1px solid var(--gold);
+    animation-delay: .15s;
+  }
+  .rank-card.second{
+    background: var(--paper-dark);
+    border: 1px solid var(--line);
+    animation-delay: .5s;
+  }
+
+  @keyframes rise{
+    to{ opacity:1; transform:translateY(0); }
+  }
+
+  .rank-label{
+    font-family:'Courier New',monospace;
+    font-size:11px;
+    letter-spacing:.3em;
+    text-transform:uppercase;
+    color:var(--gold);
+    margin-bottom:10px;
+  }
+  .rank-card.second .rank-label{ color:var(--ink-soft); }
+
+  .rank-title{
+    font-size:13px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin-bottom:6px;
+  }
+
+  .rank-name{
+    font-size:clamp(30px,7vw,42px);
+    line-height:1.15;
+    margin: 4px 0 10px;
+  }
+  .rank-card.second .rank-name{ font-size:clamp(24px,5.5vw,30px); }
+
+  .rank-votes{
+    font-family:'Courier New',monospace;
+    font-size:13px;
+    color:var(--ink-soft);
+  }
+
+  .laurel{
+    font-size:26px;
+    margin-bottom:6px;
+  }
+
+  .rest{
+    border-top:1px dashed var(--line);
+    padding-top:18px;
+  }
+  .rest .rest-label{
+    font-family:'Courier New',monospace;
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin-bottom:12px;
+  }
+  .tally-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:10px 4px;
+    border-bottom:1px dashed var(--line);
+    font-size:15px;
+  }
+  .tally-row:last-child{ border-bottom:none; }
+  .tally-count{
+    font-family:'Courier New',monospace;
+    color:var(--ink-soft);
+  }
+
+  .total{
+    text-align:center;
+    font-family:'Courier New',monospace;
+    font-size:12px;
+    color:var(--ink-soft);
+    letter-spacing:.08em;
+    margin-top:26px;
+  }
+
+  footer.credit{
+    margin-top:auto;
+    padding: 26px 0 8px;
+    text-align:center;
+    color:#b7ae9a;
+    font-size:11px;
+    letter-spacing:.05em;
+  }
+
+  @media (max-width:480px){
+    .rank-card{ padding:22px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="masthead">
+    <div class="eyebrow">Official Results</div>
+    <h1>Election of the Class Representative</h1>
+    <div class="sub">Final verdict, sealed and counted</div>
+  </header>
+
+  <div id="app"><p class="loading">Counting the ballots…</p></div>
+</div>
+
+<footer class="credit">made by krishna</footer>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyCkyR_3-PZhyNplPYndNWK_2dDcJ9_DYdE",
+  authDomain: "class-election-af133.firebaseapp.com",
+  projectId: "class-election-af133",
+  storageBucket: "class-election-af133.firebasestorage.app",
+  messagingSenderId: "77300901890",
+  appId: "1:77300901890:web:20d8719585e2c24ac2df1b"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const ELECTION_DOC = db.collection("cr_election").doc("state");
+
+const root = document.getElementById("app");
+
+function esc(str){
+  const d = document.createElement("div");
+  d.innerText = str;
+  return d.innerHTML;
+}
+
+ELECTION_DOC.onSnapshot((doc) => {
+  const state = doc.exists ? doc.data() : { candidates: [], votes: {} };
+  const candidates = state.candidates || [];
+  const votes = state.votes || {};
+  render(candidates, votes);
+}, (err) => {
+  console.error(err);
+  root.innerHTML = `<p class="empty">Could not load results. Check your connection and try again.</p>`;
+});
+
+function render(candidates, votes){
+  if (candidates.length === 0){
+    root.innerHTML = `<p class="empty">No candidates have contested this election yet.</p>`;
+    return;
+  }
+
+  const counts = {};
+  candidates.forEach(c => counts[c] = 0);
+  Object.values(votes).forEach(c => { counts[c] = (counts[c] || 0) + 1; });
+
+  const ranked = [...candidates].sort((a,b) => counts[b] - counts[a]);
+  const total = Object.values(votes).length;
+
+  const first = ranked[0];
+  const second = ranked[1];
+  const rest = ranked.slice(2);
+
+  let html = `<div class="podium">`;
+
+  html += `
+    <div class="rank-card first">
+      <div class="laurel">&#127895;</div>
+      <div class="rank-label">1st &middot; class representative</div>
+      <div class="rank-name">${esc(first)}</div>
+      <div class="rank-votes">${counts[first]} ${counts[first] === 1 ? "vote" : "votes"}</div>
+    </div>`;
+
+  if (second){
+    html += `
+      <div class="rank-card second">
+        <div class="rank-label">2nd &middot; vice class representative</div>
+        <div class="rank-name">${esc(second)}</div>
+        <div class="rank-votes">${counts[second]} ${counts[second] === 1 ? "vote" : "votes"}</div>
+      </div>`;
+  }
+
+  html += `</div>`;
+
+  if (rest.length > 0){
+    html += `<div class="rest"><div class="rest-label">Also contesting</div>`;
+    rest.forEach(c => {
+      html += `<div class="tally-row"><span>${esc(c)}</span><span class="tally-count">${counts[c]}</span></div>`;
+    });
+    html += `</div>`;
+  }
+
+  html += `<div class="total">Total ballots cast: ${total}</div>`;
+
+  root.innerHTML = html;
+}
+</script>
+
+</body>
+</html>
